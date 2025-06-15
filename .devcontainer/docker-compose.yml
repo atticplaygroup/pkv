@@ -1,0 +1,31 @@
+volumes:
+  postgres-data:
+
+services:
+  app:
+    build: 
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      - PATH=/go/bin:/workspaces/pkv/bin:/workspaces/pkv/scripts:${PATH}
+      - GOPATH=${HOME}/go
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+    ports:
+      - 8000:8000
+    volumes:
+      - ..:/workspaces/pkv:consistent
+    command: sleep infinity
+    working_dir: /workspaces/pkv
+
+  db:
+    image: postgres:latest
+    restart: unless-stopped
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+
+  redis:
+    image: redis:latest

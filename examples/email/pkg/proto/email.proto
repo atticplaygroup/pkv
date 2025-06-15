@@ -1,0 +1,21 @@
+syntax = "proto3";
+
+option go_package = "github.com/atticplaygroup/pkv/proto/examples/email";
+
+package email.examples.pkv.proto;
+
+enum MessagerType {
+    UNKNOWN = 0;
+    TRADITIONAL = 1;
+    PGP_E2EE = 2;
+}
+
+message EmailMetaMessage {
+    MessagerType message_type = 1;
+    string version = 2;
+    string host = 3;
+    uint32 port = 4;
+    string sender = 5;
+    string recipient = 6;
+    string content_resource_name = 7;
+}
