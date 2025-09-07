@@ -10,8 +10,9 @@ import (
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/protobuf/encoding/protojson"
 
-	pb "github.com/atticplaygroup/pkv/pkg/proto/gen/go/kvstore"
+	pb "github.com/atticplaygroup/pkv/pkg/proto/gen/go/kvstore/v1"
 )
 
 var (
@@ -24,13 +25,17 @@ func run() error {
 	defer cancel()
 
 	ropts := []runtime.ServeMuxOption{
-		runtime.WithMarshalerOption(runtime.MIMEWildcard, &runtime.JSONPb{}),
+		runtime.WithMarshalerOption(runtime.MIMEWildcard, &runtime.JSONPb{
+			MarshalOptions: protojson.MarshalOptions{
+				UseProtoNames: false,
+			},
+		}),
 	}
 
 	mux := runtime.NewServeMux(ropts...)
 	opts := []grpc.DialOption{grpc.WithTransportCredentials(insecure.NewCredentials())}
 
-	err := pb.RegisterKvStoreHandlerFromEndpoint(ctx, mux, *echoEndpoint, opts)
+	err := pb.RegisterKvStoreServiceHandlerFromEndpoint(ctx, mux, *echoEndpoint, opts)
 	if err != nil {
 		return err
 	}

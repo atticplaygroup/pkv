@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	"github.com/ProtonMail/gopenpgp/v3/crypto"
-	emailpb "github.com/atticplaygroup/pkv/examples/email/pkg/proto/gen/go/examples/email/pkg/proto"
+	emailpb "github.com/atticplaygroup/pkv/examples/email/pkg/proto/gen/go/pkg/proto"
 )
 
 type PGPE2EEMessager struct {
@@ -45,8 +45,6 @@ func (m *PGPE2EEMessager) SendContent(
 	ctx context.Context, sender, recipient string, message []byte,
 ) (string, error) {
 	grpcClient := NewGrpcClient(m.contentServiceHost, m.contentServicePort)
-	// Assuming the content server has a public account called "guest"
-	guestAccount := "guest"
 
 	senderPrivateKey, err := m.keyBroker.LookupPrivateKey(sender)
 	if err != nil {
@@ -73,13 +71,13 @@ func (m *PGPE2EEMessager) SendContent(
 		return "", err
 	}
 
-	return m.DoSendContent(ctx, grpcClient, sender, guestAccount, armored)
+	return m.DoSendContent(ctx, grpcClient, sender, armored)
 }
 func (m *PGPE2EEMessager) FetchMessage(
 	ctx context.Context,
 	emailInfo *emailpb.EmailMetaMessage,
 ) ([]byte, error) {
-	rawMessage, err := m.DoFetchMessage(ctx, "guest", emailInfo)
+	rawMessage, err := m.DoFetchMessage(ctx, emailInfo)
 	if err != nil {
 		return nil, err
 	}

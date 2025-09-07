@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"log"
 
-	emailpb "github.com/atticplaygroup/pkv/examples/email/pkg/proto/gen/go/examples/email/pkg/proto"
-	pb "github.com/atticplaygroup/pkv/pkg/proto/gen/go/kvstore"
+	emailpb "github.com/atticplaygroup/pkv/examples/email/pkg/proto/gen/go/pkg/proto"
+	pb "github.com/atticplaygroup/pkv/pkg/proto/gen/go/kvstore/v1"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 )
@@ -19,6 +19,7 @@ type IMessager interface {
 		email string,
 		pageSize int32,
 		pageToken string,
+		authToken string,
 	) ([]*emailpb.EmailMetaMessage, error)
 	FetchMessage(
 		ctx context.Context,
@@ -28,13 +29,13 @@ type IMessager interface {
 	GetVersion() string
 }
 
-func NewGrpcClient(host string, port uint16) pb.KvStoreClient {
+func NewGrpcClient(host string, port uint16) pb.KvStoreServiceClient {
 	grpcOptions := grpc.DialOption(grpc.WithTransportCredentials(insecure.NewCredentials()))
 	grpcConn, err := grpc.NewClient(fmt.Sprintf("%s:%d", host, port), grpcOptions)
 	if err != nil {
 		log.Fatal("cannot dial grpc remote")
 	}
-	return pb.NewKvStoreClient(grpcConn)
+	return pb.NewKvStoreServiceClient(grpcConn)
 }
 
 func formatResourceParent(m IMessager, recipient string) string {

@@ -3,60 +3,57 @@
 package main
 
 import (
-	"context"
 	"fmt"
 	"log"
-	"net"
+	"net/http"
 
+	"golang.org/x/net/http2"
+	"golang.org/x/net/http2/h2c"
+
+	"buf.build/go/protovalidate"
+	"connectrpc.com/connect"
+	"connectrpc.com/grpcreflect"
 	"github.com/atticplaygroup/pkv/internal/api"
 	"github.com/atticplaygroup/pkv/pkg/middleware"
-	"github.com/atticplaygroup/pkv/pkg/proto/gen/go/kvstore"
-	"github.com/grpc-ecosystem/go-grpc-middleware/v2/interceptors/selector"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/reflection"
+	"github.com/atticplaygroup/pkv/pkg/proto/gen/go/kvstore/v1/kvstoreconnect"
 )
 
 func main() {
 	conf := api.LoadConfig(".env", ".")
-	l, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", conf.GrpcPort))
-	if err != nil {
-		log.Fatalf("listen failed: %v", err)
-	}
-
-	ctx := context.Background()
-
 	server, err := api.NewServer(&conf)
 	if err != nil {
 		log.Fatalf("cannot init server: %v", err)
 	}
-	tokenNullifier := middleware.QuotaTokenNullifer{
-		Rdb: server.GetRedisClient(),
+	defer server.GetRedisClient().Close()
+
+	validator, err := protovalidate.New()
+	if err != nil {
+		log.Fatalf("failed to initialize validator: %s", err.Error())
 	}
-	s := grpc.NewServer(
-		grpc.ChainUnaryInterceptor(
-			selector.UnaryServerInterceptor(
-				middleware.AuthTokenMiddleware(conf.JwtSecret),
-				selector.MatchFunc(middleware.AuthMiddlewareSelector),
-			),
-			selector.UnaryServerInterceptor(
-				middleware.ResourceAccountFieldCheckerMiddleware(),
-				selector.MatchFunc(middleware.AuthMiddlewareSelector),
-			),
-			selector.UnaryServerInterceptor(
-				middleware.QuotaTokenValidityMiddleware(conf.QuotaAuthorityPublicKey),
-				selector.MatchFunc(middleware.QuotaTokenSelector),
-			),
-			selector.UnaryServerInterceptor(
-				tokenNullifier.QuotaTokenNullifyMiddleware(conf.QuotaAuthorityPublicKey),
-				selector.MatchFunc(middleware.QuotaTokenSelector),
-			),
+	sessionManager := middleware.NewRedisSessionManager(server.GetRedisClient())
+	pricingManager := &middleware.PricingManager{}
+	authManager := server.GetAuthManager()
+
+	mux := http.NewServeMux()
+	path, handler := kvstoreconnect.NewKvStoreServiceHandler(
+		server,
+		connect.WithInterceptors(
+			middleware.NewConnectUnarySessionInterceptor(sessionManager, pricingManager, authManager),
+			middleware.NewConnectValidationInterceptor(validator),
 		),
 	)
-	reflection.Register(s)
-	kvstore.RegisterKvStoreServer(s, server)
-	go func() {
-		defer s.GracefulStop()
-		<-ctx.Done()
-	}()
-	s.Serve(l)
+	mux.Handle(path, handler)
+	reflector := grpcreflect.NewStaticReflector(
+		kvstoreconnect.KvStoreServiceName,
+	)
+	rp1, rh1 := grpcreflect.NewHandlerV1(reflector)
+	mux.Handle(rp1, rh1)
+	rpa1, rha1 := grpcreflect.NewHandlerV1Alpha(reflector)
+	mux.Handle(rpa1, rha1)
+
+	log.Printf("Server started at :%d\n", conf.GrpcPort)
+	http.ListenAndServe(
+		fmt.Sprintf("127.0.0.1:%d", conf.GrpcPort),
+		h2c.NewHandler(mux, &http2.Server{}),
+	)
 }

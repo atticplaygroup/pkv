@@ -10,9 +10,13 @@ protoc -I ./pkg/proto \
     --go_opt=paths=source_relative \
     --go-grpc_out=./pkg/proto/gen/go \
     --go-grpc_opt=paths=source_relative \
+    --connect-go_out=./pkg/proto/gen/go \
+    --connect-go_opt=paths=source_relative \
+    --go-binary_out=./pkg/proto/gen/go \
+    --go-binary_opt=paths=source_relative \
     --grpc-gateway_out=./pkg/proto/gen/go \
     --grpc-gateway_opt=paths=source_relative \
-    --grpc-gateway_opt=generate_unbound_methods=true \
     --openapiv2_out=./pkg/proto/gen/openapi \
     --openapiv2_opt=use_go_templates=true \
-    ./pkg/proto/kvstore/kvstore.proto
+    ./pkg/proto/kvstore/kvstore.proto \
+    ./pkg/proto/exchange/v1/exchange.proto

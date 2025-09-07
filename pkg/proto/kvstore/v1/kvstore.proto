@@ -1,0 +1,478 @@
+syntax = "proto3";
+
+option go_package = "github.com/atticplaygroup/pkv/pkg/proto/gen/go/kvstore/v1;kvstore";
+
+import "google/api/annotations.proto";
+import "google/api/field_behavior.proto";
+import "google/protobuf/duration.proto";
+import "google/protobuf/timestamp.proto";
+import "buf/validate/validate.proto";
+
+package kvstore.v1;
+
+service KvStoreService {
+  rpc CreateValue(CreateValueRequest) returns (CreateValueResponse) {
+    option (google.api.http) = {
+      post: "/v1/values:create"
+      body: "value"
+    };
+  }
+
+  rpc CreateStreamValue(CreateStreamValueRequest) returns (CreateStreamValueResponse) {
+    option (google.api.http) = {
+      post: "/v1/{parent=accounts/*/streams/*}/values:create"
+      body: "value"
+    };
+  }
+
+  rpc GetValue(GetValueRequest) returns (GetValueResponse) {
+    option (google.api.http) = {
+      get: "/v1/{name=values/*}"
+    };
+  }
+
+  rpc GetStreamValue(GetStreamValueRequest) returns (GetStreamValueResponse) {
+    option (google.api.http) = {
+      get: "/v1/{name=accounts/*/streams/*/values/*}"
+    };
+  }
+
+  rpc ListStreamValues(ListStreamValuesRequest) returns (ListStreamValuesResponse) {
+    option (google.api.http) = {
+      get: "/v1/{parent=accounts/*/streams/*}/values"
+    };
+  }
+
+  rpc ProlongValue(ProlongValueRequest) returns (ProlongValueResponse) {
+    option (google.api.http) = {
+      post: "/v1/{name=accounts/*/values/*}:prolong"
+      body: "*"
+    };
+  }
+
+  rpc SearchCid(SearchCidRequest) returns (SearchCidResponse) {
+    option (google.api.http) = {
+      get: "/v1/searchCid"
+    };
+  }
+
+  rpc SearchInstance(SearchInstanceRequest) returns (SearchInstanceResponse) {
+    option (google.api.http) = {
+      get: "/v1/SearchInstance"
+    };
+  }
+
+  rpc CreateSession(CreateSessionRequest) returns (CreateSessionResponse) {
+    option (google.api.http) = {
+      post: "/v1/sessions:create"
+      body: "*"
+    };
+  }
+
+  rpc RegisterInstance(RegisterInstanceRequest) returns (RegisterInstanceResponse) {
+    option (google.api.http) = {
+      post: "/v1/instance:register"
+      body: "*"
+    };
+  };
+
+  rpc Ping(PingRequest) returns (PingResponse) {
+    option (google.api.http) = {
+      get: "/v1/ping"
+    };
+  }
+
+  rpc DelegatedRouting(DelegatedRoutingRequest) returns (DelegatedRoutingResponse) {
+    option (google.api.http) = {
+      get: "/routing/v1/providers/{cid=*}"
+    };
+  }
+}
+
+message ProviderResult {
+  string context_id = 1 [ json_name = "ContextID" ];
+  string metadata = 2 [ json_name = "Metadata" ];
+  Instance provider = 3 [ json_name = "Provider" ];
+}
+
+message MultihashResult {
+  string multihash = 1 [ json_name = "Multihash" ];
+  repeated ProviderResult provider_results = 2 [ json_name = "ProviderResults" ];
+}
+
+message DelegatedRoutingResponse {
+  repeated Instance providers = 1 [ json_name = "Providers" ];
+  // repeated MultihashResult multihash_results = 1 [ json_name = "MultihashResults" ];
+}
+
+message DelegatedRoutingRequest {
+  string cid = 1 [
+    (google.api.field_behavior) = REQUIRED,
+    (buf.validate.field).string = {
+      min_len: 46 // CID v0
+      max_len: 59 // CID v1
+    }
+  ];
+}
+
+message PingRequest {
+  // To test buf validate takes effect or not
+  int64 dummy = 1 [(buf.validate.field).int64.gt = 0];
+}
+
+message PingResponse {
+  string pong = 1;
+}
+
+message GlobalLink {
+  string name = 1 [
+    (google.api.field_behavior) = REQUIRED,
+    (buf.validate.field).required = true
+  ];
+  string maintainer = 2 [
+    (google.api.field_behavior) = REQUIRED,
+    (buf.validate.field).required = true
+  ];
+  string version = 3 [
+    (google.api.field_behavior) = REQUIRED,
+    (buf.validate.field).required = true
+  ];
+  string display_name = 4;
+  string description = 5;
+  string signature = 6;
+}
+
+message VirtualService {
+  GlobalLink behavior_link = 1 [
+    (google.api.field_behavior) = REQUIRED,
+    (buf.validate.field).required = true
+  ];
+  GlobalLink variant_link = 2 [
+    (google.api.field_behavior) = REQUIRED,
+    (buf.validate.field).required = true
+  ];
+}
+
+enum CoinType {
+  COIN_TYPE_UNSPECIFIED = 0;
+  COIN_TYPE_SUI = 1;
+}
+
+enum CoinEnvironment {
+  COIN_ENVIRONMENT_UNSPECIFIED = 0;
+  COIN_ENVIRONMENT_MAINNET = 1;
+  COIN_ENVIRONMENT_TESTNET = 2;
+  COIN_ENVIRONMENT_DEVNET = 3;
+  COIN_ENVIRONMENT_LOCALNET = 4;
+}
+
+message ProviderAdvertise {
+  Instance provider_instance = 1 [
+    (google.api.field_behavior) = REQUIRED,
+    (buf.validate.field).required = true
+  ];
+  VirtualService virtual_service = 2 [
+    (google.api.field_behavior) = REQUIRED,
+    (buf.validate.field).required = true
+  ];
+  // Only v1 allowed currently
+  repeated string cids = 3 [
+    (google.api.field_behavior) = REQUIRED,
+    (buf.validate.field).repeated.min_items = 1,
+    (buf.validate.field).repeated.items.string.len = 59
+  ];
+  int64 price = 4 [
+    (buf.validate.field).ignore = IGNORE_IF_ZERO_VALUE,
+    (buf.validate.field).int64.gt = 0
+  ];
+  CoinType coin_type = 5 [
+    (buf.validate.field).enum.defined_only = true
+  ];
+  CoinEnvironment coin_environment = 6 [
+    (buf.validate.field).enum.defined_only = true
+  ];
+  repeated Instance exchanges = 7 [
+    (google.api.field_behavior) = REQUIRED,
+    (buf.validate.field).required = true,
+    (buf.validate.field).repeated.min_items = 1
+  ];
+  google.protobuf.Timestamp expire_time = 8 [
+    (google.api.field_behavior) = REQUIRED,
+    (buf.validate.field).required = true,
+    (buf.validate.field).timestamp.gt_now = true
+  ];
+  google.protobuf.Timestamp update_time = 9 [
+    (buf.validate.field).ignore = IGNORE_IF_ZERO_VALUE,
+    (buf.validate.field).timestamp.within.seconds = 3600
+  ];
+  string signature = 10;
+  // virtual service dependent extra information
+  string pricing_details = 11;
+}
+
+message SearchCidRequest {
+  string cid = 1 [
+    (google.api.field_behavior) = REQUIRED,
+    (buf.validate.field).required = true,
+    (buf.validate.field).string = {
+      min_len: 46 // CID v0
+      max_len: 59 // CID v1
+    }
+  ];
+}
+
+message SearchCidResponse {
+  repeated VirtualService virtual_services = 1 [
+    (google.api.field_behavior) = REQUIRED,
+    (buf.validate.field).required = true,
+    (buf.validate.field).repeated.min_items = 1
+  ];
+  repeated ProviderAdvertise storage_instances = 2;
+  // repeated Instance index_instances = 3;
+}
+
+message SearchInstanceRequest {
+  VirtualService virtual_service = 1 [
+    (google.api.field_behavior) = REQUIRED,
+    (buf.validate.field).required = true];
+}
+
+message SearchInstanceResponse {
+  VirtualService virtual_service = 1 [
+    (google.api.field_behavior) = REQUIRED,
+    (buf.validate.field).required = true
+  ];
+  repeated ProviderAdvertise instance_price_info = 2 [
+    (google.api.field_behavior) = REQUIRED,
+    (buf.validate.field).required = true,
+    (buf.validate.field).repeated.min_items = 1
+  ];
+  // repeated Instance index_instances = 3;
+}
+
+message RegisterInstanceRequest {
+  ProviderAdvertise advertisement = 1 [
+    (google.api.field_behavior) = REQUIRED,
+    (buf.validate.field).required = true
+  ];
+}
+
+message RegisterInstanceResponse {
+}
+
+message Instance {
+  string did = 1 [
+    (google.api.field_behavior) = REQUIRED,
+    (buf.validate.field).string.pattern = "did:.*",
+    (buf.validate.field).required = true
+  ];
+  // libp2p peer id. Not essential for our app but needed to be compatible with helia
+  string peer_id = 2 [
+    json_name = "ID",
+    (buf.validate.field).string.pattern = "[0-9a-zA-Z]{52}"
+  ];
+  repeated string multiaddrs = 3 [
+    json_name = "Addrs",
+    (google.api.field_behavior) = REQUIRED,
+    (buf.validate.field).required = true,
+    (buf.validate.field).repeated.min_items = 1,
+    (buf.validate.field).repeated.items.string.min_len = 1
+  ];
+}
+
+message CreateValueRequest {
+  // string parent = 1;
+  bytes value = 2 [
+    (buf.validate.field).required = true,
+    (google.api.field_behavior) = REQUIRED,
+    (buf.validate.field).bytes = {
+      min_len: 1
+      max_len: 1073741824 // Some max single item cap
+    }
+  ];
+  google.protobuf.Duration ttl = 3 [
+    (buf.validate.field).required = true,
+    (google.api.field_behavior) = REQUIRED,
+    (buf.validate.field).duration.gte = {
+        seconds: 1
+    },
+    (buf.validate.field).duration.lte = {
+        seconds: 31536000 // 1 year max ttl
+    }
+  ];
+}
+
+message CreateValueResponse {
+  string name = 1 [
+    (buf.validate.field).required = true,
+    (google.api.field_behavior) = REQUIRED,
+    (buf.validate.field).string.pattern = "values/[0-9a-z]{59}"
+  ];
+  google.protobuf.Duration ttl = 2;
+}
+
+message CreateStreamValueRequest {
+  string parent = 1 [
+    (buf.validate.field).required = true,
+    (google.api.field_behavior) = REQUIRED,
+    (buf.validate.field).string.pattern = "accounts/did:.*/streams/.*"
+  ];
+  bytes value = 2 [
+    (buf.validate.field).required = true,
+    (google.api.field_behavior) = REQUIRED,
+    (buf.validate.field).bytes = {
+      min_len: 1
+      max_len: 4096 // stream values is currently used as metadata so should not be too big
+    }
+  ];
+  // google.protobuf.Duration ttl = 2; // The TTL is defined per stream
+}
+
+message CreateStreamValueResponse {
+  string name = 1 [
+    (buf.validate.field).required = true,
+    (google.api.field_behavior) = REQUIRED,
+    (buf.validate.field).string.pattern = "accounts/did:.*/streams/.*/values/.*"
+  ];
+  google.protobuf.Duration ttl = 2;
+}
+
+message GetStreamValueRequest {
+  string name = 1 [
+    (buf.validate.field).required = true,
+    (google.api.field_behavior) = REQUIRED,
+    (buf.validate.field).string.pattern = "accounts/did:.*/streams/.*/values/.*"
+  ];
+  string auth_token = 2 [
+    (buf.validate.field).required = true,
+    (google.api.field_behavior) = REQUIRED,
+    (buf.validate.field).string.min_len = 1
+  ];
+}
+
+message StreamValueInfo {
+  bytes value = 1 [
+    (buf.validate.field).required = true,
+    (google.api.field_behavior) = REQUIRED,
+    (buf.validate.field).bytes.min_len = 1
+  ];
+  string stream_entry_id = 2[
+    (buf.validate.field).required = true,
+    (google.api.field_behavior) = REQUIRED,
+    (buf.validate.field).string.pattern = "[0-9]+-[0-9]+"
+  ];
+}
+
+message GetStreamValueResponse {
+  StreamValueInfo stream_value_info = 1 [
+    (buf.validate.field).required = true,
+    (google.api.field_behavior) = REQUIRED
+  ];
+}
+
+message ListStreamValuesRequest {
+  string parent = 1 [
+    (buf.validate.field).required = true,
+    (google.api.field_behavior) = REQUIRED,
+    (buf.validate.field).string.pattern = "accounts/did:.*/streams/.*"
+  ];
+  string auth_token = 2 [
+    (buf.validate.field).required = true,
+    (google.api.field_behavior) = REQUIRED,
+    (buf.validate.field).string.min_len = 1
+  ];
+  int32 page_size = 3 [
+    (buf.validate.field).ignore = IGNORE_IF_ZERO_VALUE,
+    (buf.validate.field).int32.gt = 0
+  ];
+  string page_token = 4;
+}
+
+message ListStreamValuesResponse {
+  repeated StreamValueInfo stream_value_info = 1;
+  string page_token = 2;
+}
+
+message GetValueRequest {
+  string name = 1 [
+    (google.api.field_behavior) = REQUIRED,
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.pattern = "values/[0-9a-z]{59}"
+  ];
+}
+
+message GetValueResponse {
+  bytes value = 1 [
+    (buf.validate.field).required = true,
+    (google.api.field_behavior) = REQUIRED,
+    (buf.validate.field).bytes.min_len = 1
+  ];
+}
+
+message ProlongValueRequest {
+  string name = 1 [
+    (google.api.field_behavior) = REQUIRED,
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.pattern = "values/[0-9a-z]{59}"
+  ];
+  google.protobuf.Duration ttl = 2 [
+    (buf.validate.field).required = true,
+    (google.api.field_behavior) = REQUIRED,
+    (buf.validate.field).duration.gte = {
+        seconds: 1
+    },
+    (buf.validate.field).duration.lte = {
+        seconds: 31536000 // 1 year ttl but you can prolong multiple times
+    }
+  ];
+  int64 max_size = 3 [
+    (google.api.field_behavior) = REQUIRED,
+    (buf.validate.field).required = true,
+    (buf.validate.field).int64.gt = 0
+  ];
+}
+
+message ProlongValueResponse {
+  string name = 1;
+  google.protobuf.Duration ttl = 2;
+}
+
+message Session {
+  string session_id = 1 [
+    (google.api.field_behavior) = REQUIRED,
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.min_len = 1
+  ];
+  int64 balance = 2 [
+    (google.api.field_behavior) = REQUIRED,
+    (buf.validate.field).required = true,
+    (buf.validate.field).int64.gte = 0
+  ];
+}
+
+// TODO: Use the same proto file
+enum JwtUsage {
+  JWT_USAGE_UNSPECIFIED = 0;
+  JWT_USAGE_CREATE_SESSION = 1;
+  JWT_USAGE_MANAGE_SESSION = 2;
+}
+
+message CreateSessionRequest {
+  string jwt = 1 [
+    (buf.validate.field).required = true,
+    (google.api.field_behavior) = REQUIRED,
+    (buf.validate.field).string.min_len = 1
+  ];
+}
+
+message CreateSessionResponse {
+  Session session = 1 [
+    (buf.validate.field).required = true,
+    (google.api.field_behavior) = REQUIRED
+  ];
+  string jwt = 2 [
+    (buf.validate.field).required = true,
+    (google.api.field_behavior) = REQUIRED,
+    (buf.validate.field).string.min_len = 1
+  ];
+}

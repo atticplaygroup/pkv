@@ -9,6 +9,8 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/atticplaygroup/pkv/examples/email/pkg/messager"
+	"github.com/atticplaygroup/pkv/pkg/proto/gen/go/kvstore/v1"
 	"github.com/golang-jwt/jwt/v5"
 
 	"github.com/spf13/cobra"
@@ -18,7 +20,6 @@ import (
 
 const (
 	mockQuotaUrl      = "http://localhost:8100/quota?max_size=99999&ttl=999999"
-	guestTokenUrl     = "http://localhost:8080/v1/guest"
 	emailMetaDataHost = "localhost"
 	emailMetadataPort = 50051
 )
@@ -44,7 +45,7 @@ func getAuthToken(configPath string) string {
 }
 
 // TODO: quota token can be lazy because they can be reused until used up so need to fetch every time
-func getMockOrGuestToken(mockTokenUrl string) string {
+func getMockSessionToken(mockTokenUrl string) string {
 	response, err := http.Get(mockTokenUrl)
 	if err != nil {
 		log.Fatalf("cannot get mock prex quota token: %v", err)
@@ -53,11 +54,19 @@ func getMockOrGuestToken(mockTokenUrl string) string {
 	if response.StatusCode != http.StatusOK {
 		log.Fatalf("unexpected status when fetching mock quota token: %d", response.StatusCode)
 	}
-	quotaToken, err := io.ReadAll(response.Body)
+	createSessionToken, err := io.ReadAll(response.Body)
 	if err != nil {
 		log.Fatalf("cannot read body: %v", err)
 	}
-	return string(quotaToken)
+	grpcClient := messager.NewGrpcClient(emailMetaDataHost, emailMetadataPort)
+	sessionResponse, err := grpcClient.CreateSession(context.Background(), &kvstore.CreateSessionRequest{
+		Jwt: string(createSessionToken),
+	})
+	if err != nil {
+		log.Fatalf("failed to create session: %v", err)
+	}
+
+	return sessionResponse.GetJwt()
 }
 
 func read(cmd *cobra.Command, args []string) {
@@ -72,7 +81,7 @@ func read(cmd *cobra.Command, args []string) {
 	messager1 := getMessager(messagerType)
 
 	authToken := getAuthToken(configPath)
-	quotaToken := getMockOrGuestToken(mockQuotaUrl)
+	quotaToken := getMockSessionToken(mockQuotaUrl)
 	parsedToken, err := jwt.Parse(authToken, nil)
 	if err != nil && !errors.Is(err, jwt.ErrTokenUnverifiable) {
 		log.Fatalf("could not parse jwt ID token: %v", err)
@@ -86,27 +95,16 @@ func read(cmd *cobra.Command, args []string) {
 
 	// Step 1: Fetch metadata.
 	authQuotaMd := metadata.Pairs(
-		"authorization", "Bearer "+authToken,
-		"x-prex-quota", "Bearer "+quotaToken,
+		"authorization", "Bearer "+quotaToken,
 	)
 	authQuotaCtx := metadata.NewOutgoingContext(ctx, authQuotaMd)
-	emailKeys, err := messager1.ListMessages(authQuotaCtx, email, 9999, "0-0")
+	emailKeys, err := messager1.ListMessages(authQuotaCtx, email, 9999, "0-0", authToken)
 	if err != nil {
 		log.Fatalf("failed to get email keys: %v", err)
 	}
 
 	// Step 2: Fetch email contents.
-	var md metadata.MD
-	if messagerType == "pgp_e2ee" {
-		guestToken := getMockOrGuestToken(guestTokenUrl)
-		guestQuotaMd := metadata.Pairs(
-			"authorization", "Bearer "+guestToken,
-			"x-prex-quota", "Bearer "+quotaToken,
-		)
-		md = guestQuotaMd
-	} else {
-		md = authQuotaMd
-	}
+	md := authQuotaMd
 	contentCtx := metadata.NewOutgoingContext(context.Background(), md)
 	for i, emailKey := range emailKeys {
 		content, err := messager1.FetchMessage(contentCtx, emailKey)

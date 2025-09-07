@@ -15,7 +15,7 @@ func TestApi(t *testing.T) {
 	RegisterFailHandler(Fail)
 	JwtSeed = "HbFdKCKTGkzcWKMPWmHKjW/Ii/wpcKTyD+8QIxw3Gc0="
 	conf := api.LoadConfig(".env", "../..")
-	JwtHS256Secret = conf.JwtSecretEncoded
+	JwtHS256Secret = conf.SecretSeedEncoded
 
 	conn, err := grpc.NewClient(
 		"localhost:50051",

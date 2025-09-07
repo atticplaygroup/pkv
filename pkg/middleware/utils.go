@@ -12,16 +12,11 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-const (
-	headerAuthorize = "authorization"
-	headerQuota     = "x-prex-quota"
-	headerNotes     = "x-prex-notes"
-)
-
 type CtxKeyType int
 
 const (
-	KeyAuthClaims CtxKeyType = 1
+	KeyAuthClaims CtxKeyType = iota
+	KeySession
 )
 
 func parseResourceName(name string, prefixes []string) ([]string, error) {

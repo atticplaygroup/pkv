@@ -3,17 +3,50 @@ package api
 import (
 	"context"
 	"fmt"
+	"strings"
 
-	pb "github.com/atticplaygroup/pkv/pkg/proto/gen/go/kvstore"
-	"github.com/google/uuid"
+	"bytes"
+	"crypto/sha256"
+	"io"
+
+	"connectrpc.com/connect"
+	pb "github.com/atticplaygroup/pkv/pkg/proto/gen/go/kvstore/v1"
 	"github.com/redis/go-redis/v9"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/durationpb"
+
+	"github.com/ipfs/go-cid"
+	"github.com/multiformats/go-multicodec"
+	"github.com/multiformats/go-multihash"
 )
 
-func (s *Server) CreateValue(ctx context.Context, req *pb.CreateValueRequest) (*pb.CreateValueResponse, error) {
-	name := fmt.Sprintf("%s/values/%s", req.GetParent(), uuid.New().String())
+func HashRawBytes(inputBytes []byte) string {
+	h := sha256.New()
+	io.Copy(h, bytes.NewReader(inputBytes))
+	digest := h.Sum(nil)
+	mh, err := multihash.Encode(digest, multihash.SHA2_256)
+	if err != nil {
+		panic(err)
+	}
+	return cid.NewCidV1(uint64(multicodec.Raw), mh).String()
+}
+
+func (s *Server) Ping(
+	ctx context.Context,
+	connectReq *connect.Request[pb.PingRequest],
+) (*connect.Response[pb.PingResponse], error) {
+	return connect.NewResponse(&pb.PingResponse{
+		Pong: "pong",
+	}), nil
+}
+
+func (s *Server) CreateValue(
+	ctx context.Context, connectReq *connect.Request[pb.CreateValueRequest],
+) (*connect.Response[pb.CreateValueResponse], error) {
+	req := connectReq.Msg
+	// TODO: if cid turns out to be existing then prolong the ttl
+	name := fmt.Sprintf("values/%s", HashRawBytes(req.GetValue()))
 	if err := s.redisClient.Set(
 		ctx,
 		name,
@@ -25,16 +58,31 @@ func (s *Server) CreateValue(ctx context.Context, req *pb.CreateValueRequest) (*
 			"failed to set value",
 		)
 	} else {
-		ret := pb.CreateValueResponse{
+		return connect.NewResponse(&pb.CreateValueResponse{
 			Name: name,
 			Ttl:  req.GetTtl(),
-		}
-		return &ret, nil
+		}), nil
 	}
 }
 
-func (s *Server) GetValue(ctx context.Context, req *pb.GetValueRequest) (*pb.GetValueResponse, error) {
-	value, err := s.redisClient.Get(ctx, req.GetName()).Result()
+func (s *Server) GetValue(
+	ctx context.Context, connectReq *connect.Request[pb.GetValueRequest],
+) (*connect.Response[pb.GetValueResponse], error) {
+	req := connectReq.Msg
+	cid, find := strings.CutPrefix(req.GetName(), "values/")
+	if !find {
+		return nil, status.Errorf(
+			codes.InvalidArgument,
+			"expected resource name begin with \"values/\" but got %s",
+			req.GetName(),
+		)
+	}
+	cidV1, err := NormalizeCidToV1(cid)
+	if err != nil {
+		return nil, err
+	}
+	cidKey := fmt.Sprintf("values/%s", cidV1)
+	value, err := s.redisClient.Get(ctx, cidKey).Result()
 	if err == redis.Nil {
 		return nil, status.Error(
 			codes.NotFound,
@@ -46,14 +94,16 @@ func (s *Server) GetValue(ctx context.Context, req *pb.GetValueRequest) (*pb.Get
 			"failed to get value",
 		)
 	} else {
-		ret := pb.GetValueResponse{
+		return connect.NewResponse(&pb.GetValueResponse{
 			Value: []byte(value),
-		}
-		return &ret, nil
+		}), nil
 	}
 }
 
-func (s *Server) ProlongValue(ctx context.Context, req *pb.ProlongValueRequest) (*pb.ProlongValueResponse, error) {
+func (s *Server) ProlongValue(
+	ctx context.Context, connectReq *connect.Request[pb.ProlongValueRequest],
+) (*connect.Response[pb.ProlongValueResponse], error) {
+	req := connectReq.Msg
 	if req.GetTtl().AsDuration() <= 0 {
 		return nil, status.Error(
 			codes.InvalidArgument,
@@ -96,10 +146,9 @@ func (s *Server) ProlongValue(ctx context.Context, req *pb.ProlongValueRequest) 
 			"failed to set ttl",
 		)
 	} else {
-		ret := pb.ProlongValueResponse{
+		return connect.NewResponse(&pb.ProlongValueResponse{
 			Name: req.GetName(),
 			Ttl:  durationpb.New(newTtl),
-		}
-		return &ret, nil
+		}), nil
 	}
 }

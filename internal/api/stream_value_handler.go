@@ -7,8 +7,10 @@ import (
 	"strings"
 	"time"
 
+	"connectrpc.com/connect"
 	"github.com/atticplaygroup/pkv/pkg/middleware"
-	pb "github.com/atticplaygroup/pkv/pkg/proto/gen/go/kvstore"
+	pb "github.com/atticplaygroup/pkv/pkg/proto/gen/go/kvstore/v1"
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/redis/go-redis/v9"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -20,8 +22,9 @@ const streamTtl = time.Duration(7 * 24 * 3600 * time.Second)
 
 // TODO: batchify me
 func (s *Server) CreateStreamValue(
-	ctx context.Context, req *pb.CreateStreamValueRequest,
-) (*pb.CreateStreamValueResponse, error) {
+	ctx context.Context, connectReq *connect.Request[pb.CreateStreamValueRequest],
+) (*connect.Response[pb.CreateStreamValueResponse], error) {
+	req := connectReq.Msg
 	streamID := req.GetParent()
 	// Retentions are paid by value writers.
 	// Stream's retention is also set to streamTtl.
@@ -53,11 +56,10 @@ func (s *Server) CreateStreamValue(
 			err,
 		)
 	}
-	ret := pb.CreateStreamValueResponse{
+	return connect.NewResponse(&pb.CreateStreamValueResponse{
 		Name: fmt.Sprintf("%s/values/%s", req.GetParent(), entryId),
 		Ttl:  durationpb.New(streamTtl),
-	}
-	return &ret, nil
+	}), nil
 }
 
 func parseXMessage(xMessage *redis.XMessage) (*pb.StreamValueInfo, error) {
@@ -118,9 +120,23 @@ func getMaxEntryID(a, b string) (string, error) {
 }
 
 func (s *Server) ListStreamValues(
-	ctx context.Context, req *pb.ListStreamValuesRequest,
-) (*pb.ListStreamValuesResponse, error) {
+	ctx context.Context, connectReq *connect.Request[pb.ListStreamValuesRequest],
+) (*connect.Response[pb.ListStreamValuesResponse], error) {
+	req := connectReq.Msg
 	streamID := req.GetParent()
+	fields, err := middleware.ParseResourceName(req.GetParent(), []string{
+		"accounts", "streams",
+	})
+	if err != nil {
+		return nil, status.Errorf(
+			codes.InvalidArgument,
+			"failed to parse resource name: %v",
+			err,
+		)
+	}
+	if err := s.ensureAuthToken(req.GetAuthToken(), fields[0]); err != nil {
+		return nil, err
+	}
 	xMessages, err := s.redisClient.XRangeN(
 		ctx,
 		streamID,
@@ -136,10 +152,10 @@ func (s *Server) ListStreamValues(
 		)
 	}
 	if len(xMessages) == 0 {
-		return &pb.ListStreamValuesResponse{
+		return connect.NewResponse(&pb.ListStreamValuesResponse{
 			StreamValueInfo: nil,
 			PageToken:       "0-0",
-		}, nil
+		}), nil
 	}
 
 	ret := make([]*pb.StreamValueInfo, 0)
@@ -163,15 +179,44 @@ func (s *Server) ListStreamValues(
 			)
 		}
 	}
-	return &pb.ListStreamValuesResponse{
+	return connect.NewResponse(&pb.ListStreamValuesResponse{
 		StreamValueInfo: ret,
 		PageToken:       maxEntryID,
-	}, nil
+	}), nil
+}
+
+func (s *Server) ensureAuthToken(authToken string, expectedSubject string) error {
+	claims, err := s.authmanager.VerifyAndParseJwt(authToken, &jwt.RegisteredClaims{}, true)
+	if err != nil {
+		return status.Errorf(
+			codes.PermissionDenied,
+			"failed to parse auth token in request: %v",
+			err,
+		)
+	}
+	subject, err := claims.GetSubject()
+	if err != nil {
+		return status.Errorf(
+			codes.PermissionDenied,
+			"failed to parse subject in auth token: %v",
+			err,
+		)
+	}
+	if subject != expectedSubject {
+		return status.Errorf(
+			codes.PermissionDenied,
+			"auth token subject %s not matching resource owner %s",
+			subject,
+			expectedSubject,
+		)
+	}
+	return nil
 }
 
 func (s *Server) GetStreamValue(
-	ctx context.Context, req *pb.GetStreamValueRequest,
-) (*pb.GetStreamValueResponse, error) {
+	ctx context.Context, connectReq *connect.Request[pb.GetStreamValueRequest],
+) (*connect.Response[pb.GetStreamValueResponse], error) {
+	req := connectReq.Msg
 	fields, err := middleware.ParseResourceName(req.GetName(), []string{
 		"accounts", "streams", "values",
 	})
@@ -181,6 +226,9 @@ func (s *Server) GetStreamValue(
 			"failed to parse resource name: %v",
 			err,
 		)
+	}
+	if err := s.ensureAuthToken(req.GetAuthToken(), fields[0]); err != nil {
+		return nil, err
 	}
 	streamID := fmt.Sprintf("accounts/%s/streams/%s", fields[0], fields[1])
 	xStream, err := s.redisClient.XRead(ctx, &redis.XReadArgs{
@@ -218,7 +266,7 @@ func (s *Server) GetStreamValue(
 			err,
 		)
 	}
-	return &pb.GetStreamValueResponse{
+	return connect.NewResponse(&pb.GetStreamValueResponse{
 		StreamValueInfo: streamValueInfo,
-	}, nil
+	}), nil
 }

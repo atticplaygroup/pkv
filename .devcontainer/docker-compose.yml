@@ -12,7 +12,7 @@ services:
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=postgres
     ports:
-      - 8000:8000
+      - 8001:8000
     volumes:
       - ..:/workspaces/pkv:consistent
     command: sleep infinity

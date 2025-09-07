@@ -57,9 +57,9 @@ func write(cmd *cobra.Command, args []string) {
 	sender := "alice@op1.com"
 	recipient := "bob@op2.com"
 	ctx := context.Background()
-	quotaToken := getMockOrGuestToken(mockQuotaUrl)
+	quotaToken := getMockSessionToken(mockQuotaUrl)
 	md := metadata.Pairs(
-		"x-prex-quota", "Bearer "+quotaToken,
+		"Authorization", "Bearer "+quotaToken,
 	)
 	ctx = metadata.NewOutgoingContext(ctx, md)
 	firstMessageResourceName, err := messager1.SendContent(

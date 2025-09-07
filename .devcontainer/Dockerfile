@@ -28,6 +28,9 @@ RUN go install github.com/fullstorydev/grpcurl/cmd/grpcurl@latest && \
     go install github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-openapiv2@latest && \
     go install google.golang.org/protobuf/cmd/protoc-gen-go@latest && \
     go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest && \
+    go install connectrpc.com/connect/cmd/protoc-gen-connect-go@latest && \
+    go install github.com/bufbuild/buf/cmd/buf@latest && \
+    go install github.com/hashicorp/protoc-gen-go-binary@latest && \
     go install github.com/spf13/cobra-cli@latest && \
     go install github.com/sqlc-dev/sqlc/cmd/sqlc@latest
 USER root

@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	emailpb "github.com/atticplaygroup/pkv/examples/email/pkg/proto/gen/go/examples/email/pkg/proto"
-	pb "github.com/atticplaygroup/pkv/pkg/proto/gen/go/kvstore"
+	emailpb "github.com/atticplaygroup/pkv/examples/email/pkg/proto/gen/go/pkg/proto"
+	pb "github.com/atticplaygroup/pkv/pkg/proto/gen/go/kvstore/v1"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -28,12 +28,11 @@ func NewTraditionalMessager(
 }
 
 func (m *TraditionalMessager) DoSendContent(
-	ctx context.Context, grpcClient pb.KvStoreClient, sender, recipient string, message []byte,
+	ctx context.Context, grpcClient pb.KvStoreServiceClient, sender string, message []byte,
 ) (string, error) {
 	contentResp, err := grpcClient.CreateValue(
 		ctx, &pb.CreateValueRequest{
-			Parent: fmt.Sprintf("accounts/%s", recipient),
-			Value:  []byte(message),
+			Value: []byte(message),
 		},
 	)
 	if err != nil {
@@ -46,7 +45,7 @@ func (m *TraditionalMessager) SendContent(
 	ctx context.Context, sender, recipient string, message []byte,
 ) (string, error) {
 	grpcClient := NewGrpcClient(m.metadataServiceHost, m.metadataServicePort)
-	return m.DoSendContent(ctx, grpcClient, sender, recipient, message)
+	return m.DoSendContent(ctx, grpcClient, sender, message)
 }
 
 func (m *TraditionalMessager) SendMetadata(
@@ -102,6 +101,7 @@ func (m *TraditionalMessager) ListMessages(
 	email string,
 	pageSize int32,
 	pageToken string,
+	authToken string,
 ) ([]*emailpb.EmailMetaMessage, error) {
 	parent := formatResourceParent(m.self, email)
 	grpcClient := NewGrpcClient(m.metadataServiceHost, m.metadataServicePort)
@@ -110,6 +110,7 @@ func (m *TraditionalMessager) ListMessages(
 			Parent:    parent,
 			PageSize:  pageSize,
 			PageToken: pageToken,
+			AuthToken: authToken,
 		},
 	)
 	if err != nil {
@@ -124,7 +125,6 @@ func (m *TraditionalMessager) ListMessages(
 
 func (m *TraditionalMessager) DoFetchMessage(
 	ctx context.Context,
-	accountId string,
 	emailInfo *emailpb.EmailMetaMessage,
 ) ([]byte, error) {
 	grpcClient := NewGrpcClient(m.metadataServiceHost, m.metadataServicePort)
@@ -141,5 +141,5 @@ func (m *TraditionalMessager) FetchMessage(
 	ctx context.Context,
 	emailInfo *emailpb.EmailMetaMessage,
 ) ([]byte, error) {
-	return m.DoFetchMessage(ctx, emailInfo.GetRecipient(), emailInfo)
+	return m.DoFetchMessage(ctx, emailInfo)
 }

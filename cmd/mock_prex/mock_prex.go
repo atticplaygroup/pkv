@@ -3,20 +3,44 @@ package main
 import (
 	"crypto/ed25519"
 	"encoding/base64"
+	"encoding/hex"
 	"fmt"
 	"log"
 	"net/http"
-	"strconv"
 	"time"
 
+	pb "github.com/atticplaygroup/pkv/pkg/proto/gen/go/kvstore/v1"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 	"github.com/spf13/viper"
 )
 
 type Config struct {
-	signingSeedEncoded string `mapstructure:"SIGNING_SEED"`
-	privateKey         ed25519.PrivateKey
+	TokenSigningSeed       string `mapstructure:"TOKEN_SIGNING_SEED"`
+	TokenSigningPrivateKey ed25519.PrivateKey
+	QuotaAuthorityDid      string `mapstructure:"QUOTA_AUTHORITY_DID"`
+}
+
+func hexToBytes(hexStr string, arrayLength uint8) ([]byte, error) {
+	if (len(hexStr) != 2*int(arrayLength)+2) || hexStr[:2] != "0x" {
+		return nil, fmt.Errorf(
+			"expected hex string for 32 bytes beginning with 0x but got %s", hexStr,
+		)
+	}
+
+	byteSlice, err := hex.DecodeString(hexStr[2:])
+	if err != nil {
+		return nil, err
+	}
+	return byteSlice, nil
+}
+
+func HexToBytes32(hexStr string) ([]byte, error) {
+	if bytes, err := hexToBytes(hexStr, 32); err != nil {
+		return nil, err
+	} else {
+		return bytes, nil
+	}
 }
 
 func loadConfig(name string, path string) (config Config) {
@@ -32,15 +56,22 @@ func loadConfig(name string, path string) (config Config) {
 	if err := viper.Unmarshal(&config); err != nil {
 		log.Fatalf("config: %v", err)
 	}
-	config.signingSeedEncoded = viper.GetString("SIGNING_SEED")
-	config.privateKey = ed25519.NewKeyFromSeed(
-		mustDecodeBytes(config.signingSeedEncoded))
+	seed, err := HexToBytes32(config.TokenSigningSeed)
+	if err != nil {
+		log.Fatalf("failed to parse TokenSigningSeed %s: %v", config.TokenSigningSeed, err)
+	}
+	if len(seed) != ed25519.SeedSize {
+		log.Fatalf("expect seed to have len %d but got %d: %v", ed25519.SeedSize, len(seed), seed)
+	}
+	config.TokenSigningPrivateKey = ed25519.NewKeyFromSeed(seed)
 	fmt.Printf("pubkey: %s\n", base64.StdEncoding.EncodeToString(
-		config.privateKey.Public().(ed25519.PublicKey)))
+		config.TokenSigningPrivateKey.Public().(ed25519.PublicKey)))
+	issuerDid = config.QuotaAuthorityDid
 	return config
 }
 
 var config Config
+var issuerDid string
 
 func main() {
 	config = loadConfig(".env", "/workspaces/pkv")
@@ -54,25 +85,15 @@ func main() {
 }
 
 func handleQuota(w http.ResponseWriter, r *http.Request) {
-	ttlStr := r.FormValue("ttl")
-	ttl, err := strconv.Atoi(ttlStr)
-	if err != nil {
-		http.Error(w, "ttl parameter not found", http.StatusBadRequest)
-	}
-	maxSizeStr := r.FormValue("max_size")
-	maxSize, err := strconv.Atoi(maxSizeStr)
-	if err != nil {
-		http.Error(w, "max_size parameter not found", http.StatusBadRequest)
-	}
-	claim := getClaims("guest")
+	claim := getClaims()
 	claims := QuotaClaims{
-		Ttl:              ttl,
-		MaxSize:          maxSize,
+		Usage:            pb.JwtUsage_JWT_USAGE_CREATE_SESSION,
+		Quantity:         1_000_000,
 		RegisteredClaims: &claim,
 	}
 
 	token := jwt.NewWithClaims(&jwt.SigningMethodEd25519{}, claims)
-	jwtSigned, err := token.SignedString(config.privateKey)
+	jwtSigned, err := token.SignedString(config.TokenSigningPrivateKey)
 	if err != nil {
 		panic(err)
 	}
@@ -80,28 +101,19 @@ func handleQuota(w http.ResponseWriter, r *http.Request) {
 }
 
 type QuotaClaims struct {
-	Ttl     int `json:"ttl"`
-	MaxSize int `json:"max_size"`
+	Usage    pb.JwtUsage `json:"usage"`
+	Quantity int64       `json:"quantity"`
 	*jwt.RegisteredClaims
 }
 
-func getClaims(subject string) jwt.RegisteredClaims {
-	serviceIdentifier := "myself"
+func getClaims() jwt.RegisteredClaims {
+	serviceIdentifier := issuerDid
 	return jwt.RegisteredClaims{
 		ExpiresAt: jwt.NewNumericDate(time.Now().Add(4 * time.Minute)),
 		IssuedAt:  jwt.NewNumericDate(time.Now()),
 		NotBefore: jwt.NewNumericDate(time.Now()),
 		Issuer:    serviceIdentifier,
-		Subject:   subject,
 		ID:        uuid.NewString(),
 		Audience:  []string{serviceIdentifier},
 	}
-}
-
-func mustDecodeBytes(encoded string) []byte {
-	ret, err := base64.StdEncoding.DecodeString(encoded)
-	if err != nil {
-		log.Fatalf("config: failed to parse base64: %v", err)
-	}
-	return ret
 }
