@@ -44,7 +44,11 @@ func NewConnectUnarySessionInterceptor(s ISessionManager, p IPricingManager, a I
 			}
 			claims, err := a.VerifyAndParseJwt(pieces[1], &SessionJwtClaims{}, true)
 			if err != nil {
-				return nil, err
+				return nil, status.Errorf(
+					codes.PermissionDenied,
+					"failed to parse or verify token: %s",
+					err.Error(),
+				)
 			}
 
 			jwtClaims, ok := claims.(*SessionJwtClaims)

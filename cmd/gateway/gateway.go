@@ -2,6 +2,7 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"log"
 	"net/http"
 
@@ -12,6 +13,7 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/protobuf/encoding/protojson"
 
+	"github.com/atticplaygroup/pkv/internal/api"
 	pb "github.com/atticplaygroup/pkv/pkg/proto/gen/go/kvstore/v1"
 )
 
@@ -40,8 +42,10 @@ func run() error {
 		return err
 	}
 
-	log.Println("starting gateway server on port 3000")
-	return http.ListenAndServe(":3000", mux)
+	c := api.GetCorsConfig()
+	port := 3000
+	log.Printf("starting gateway server on port %d\n", port)
+	return http.ListenAndServe(fmt.Sprintf(":%d", port), c.Handler(mux))
 }
 
 func main() {

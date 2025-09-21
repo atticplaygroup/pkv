@@ -50,10 +50,11 @@ func main() {
 	mux.Handle(rp1, rh1)
 	rpa1, rha1 := grpcreflect.NewHandlerV1Alpha(reflector)
 	mux.Handle(rpa1, rha1)
+	c := api.GetCorsConfig()
 
 	log.Printf("Server started at :%d\n", conf.GrpcPort)
 	http.ListenAndServe(
 		fmt.Sprintf("127.0.0.1:%d", conf.GrpcPort),
-		h2c.NewHandler(mux, &http2.Server{}),
+		h2c.NewHandler(c.Handler(mux), &http2.Server{}),
 	)
 }

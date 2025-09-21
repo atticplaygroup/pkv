@@ -24,16 +24,28 @@ func (s *Server) RegisterInstance(
 	for _, p := range processors {
 		matching, err := p.IsBehaviorMatching(req.GetAdvertisement().GetVirtualService().GetBehaviorLink())
 		if err != nil {
-			return nil, err
+			return nil, status.Errorf(
+				codes.InvalidArgument,
+				"behavior link not matching: %s",
+				err.Error(),
+			)
 		}
 		if !matching {
 			continue
 		}
 		if err := p.EnsureAdvertisementValid(req.GetAdvertisement()); err != nil {
-			return nil, err
+			return nil, status.Errorf(
+				codes.InvalidArgument,
+				"advertisement is not valid: %s",
+				err.Error(),
+			)
 		}
 		if err := p.Register(ctx, req.GetAdvertisement()); err != nil {
-			return nil, err
+			return nil, status.Errorf(
+				codes.Internal,
+				"failed to register: %s",
+				err.Error(),
+			)
 		}
 		return &connect.Response[pb.RegisterInstanceResponse]{}, nil
 	}
