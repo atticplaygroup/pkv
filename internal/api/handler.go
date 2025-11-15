@@ -11,6 +11,7 @@ import (
 
 	"connectrpc.com/connect"
 	pb "github.com/atticplaygroup/pkv/pkg/proto/gen/go/kvstore/v1"
+	"github.com/ipfs/boxo/ipld/merkledag"
 	"github.com/redis/go-redis/v9"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -41,12 +42,42 @@ func (s *Server) Ping(
 	}), nil
 }
 
+func calculateCid(req *pb.CreateValueRequest) (string, error) {
+	switch req.GetCodec() {
+	case pb.CreateValueRequest_CODEC_DAG_PB:
+		protoNode, err := merkledag.DecodeProtobuf(req.GetValue())
+		if err != nil {
+			return "", err
+		}
+		if protoNode.Cid().Prefix().Codec != cid.DagProtobuf {
+			return "", fmt.Errorf(
+				"expected codec to be dag-pb (%d) but got %d",
+				cid.DagProtobuf,
+				protoNode.Cid().Prefix().Codec,
+			)
+		}
+		return cid.NewCidV1(cid.DagProtobuf, protoNode.Cid().Hash()).String(), nil
+	case pb.CreateValueRequest_CODEC_RAW:
+		return HashRawBytes(req.GetValue()), nil
+	default:
+		return "", fmt.Errorf("only raw and dag-pb codec are allowed")
+	}
+}
+
 func (s *Server) CreateValue(
 	ctx context.Context, connectReq *connect.Request[pb.CreateValueRequest],
 ) (*connect.Response[pb.CreateValueResponse], error) {
 	req := connectReq.Msg
+	cid, err := calculateCid(req)
+	if err != nil {
+		return nil, status.Errorf(
+			codes.InvalidArgument,
+			"failed to calculate cid: %s",
+			err.Error(),
+		)
+	}
 	// TODO: if cid turns out to be existing then prolong the ttl
-	name := fmt.Sprintf("values/%s", HashRawBytes(req.GetValue()))
+	name := fmt.Sprintf("values/%s", cid)
 	if err := s.redisClient.Set(
 		ctx,
 		name,

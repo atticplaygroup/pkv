@@ -45,7 +45,7 @@ service KvStoreService {
 
   rpc ProlongValue(ProlongValueRequest) returns (ProlongValueResponse) {
     option (google.api.http) = {
-      post: "/v1/{name=accounts/*/values/*}:prolong"
+      post: "/v1/{name=values/*}:prolong"
       body: "*"
     };
   }
@@ -281,7 +281,12 @@ message Instance {
 }
 
 message CreateValueRequest {
-  // string parent = 1;
+  enum Codec {
+    CODEC_UNSPECIFIED = 0;
+    CODEC_RAW = 1;
+    CODEC_DAG_PB = 2;
+  }
+  Codec codec = 1 [(buf.validate.field).enum.defined_only = true ];
   bytes value = 2 [
     (buf.validate.field).required = true,
     (google.api.field_behavior) = REQUIRED,

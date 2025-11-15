@@ -155,6 +155,7 @@ var _ = Describe("Store, fetch and prolong data", Label("kvstore"), Ordered, fun
 	When("user creates new value without valid token", func() {
 		It("should deny the request", func() {
 			req := pb.CreateValueRequest{
+				Codec: pb.CreateValueRequest_CODEC_RAW,
 				Value: []byte("foo"),
 				Ttl:   durationpb.New(1000 * time.Second),
 			}
@@ -182,6 +183,7 @@ var _ = Describe("Store, fetch and prolong data", Label("kvstore"), Ordered, fun
 	When("user creates new value with valid token", func() {
 		It("should success", func() {
 			req := pb.CreateValueRequest{
+				Codec: pb.CreateValueRequest_CODEC_RAW,
 				Value: []byte("foo"),
 				Ttl:   durationpb.New(1000 * time.Second),
 			}
@@ -193,6 +195,19 @@ var _ = Describe("Store, fetch and prolong data", Label("kvstore"), Ordered, fun
 			Expect(err).To(BeNil())
 			Expect(resp.Msg.GetTtl().AsDuration().Seconds()).To(Equal(1000.0))
 			resourceName = resp.Msg.GetName()
+
+			pbEncoded := "EisKIhIg8qaxa9MPTk+A02vTI5LGoNv8NODhF3EqUO5uuXXXDxcSABiu1OAVEisKIhIgpVQ3cvFr/ZOglfEBSf3ZHtXhhoJlswnWVK1PfPpXwyISABiu1OAVEisKIhIgv6B1FQC+ZCkS5I5Xgftx/1hri4OWSEdfkR8UXPx+5lESABiu1OAVEisKIhIg6WtJUWPf/PnJ8M2NJIB2D/YKiaYgHeIRxrqvHVtGOrwSABjNxsYOChsIAhjtjeZPIICA4BUggIDgFSCAgOAVIO2Nxg4="
+			pbBytes, err := base64.StdEncoding.DecodeString(pbEncoded)
+			Expect(err).To(BeNil())
+			req = pb.CreateValueRequest{
+				Codec: pb.CreateValueRequest_CODEC_DAG_PB,
+				Value: pbBytes,
+				Ttl:   durationpb.New(1000 * time.Second),
+			}
+			resp, err = client.CreateValue(ctx, connectReq)
+			Expect(err).To(BeNil())
+			Expect(resp.Msg.GetName()).To(Equal("values/bafybeigagd5nmnn2iys2f3doro7ydrevyr2mzarwidgadawmamiteydbzi"))
+			Expect(resp.Msg.GetTtl().AsDuration().Seconds()).To(Equal(1000.0))
 		})
 	})
 

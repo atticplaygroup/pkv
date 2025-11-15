@@ -13,6 +13,7 @@ import (
 	"github.com/multiformats/go-multihash"
 	"github.com/redis/go-redis/v9"
 	"github.com/wealdtech/go-merkletree/v2"
+	"github.com/wealdtech/go-merkletree/v2/keccak256"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
@@ -47,7 +48,11 @@ func CalculateMerkleRoot(cidStrings []string) (string, error) {
 		}
 		cids = append(cids, cid.Bytes())
 	}
-	mt, err := merkletree.New(cids)
+	mt, err := merkletree.NewTree(
+		merkletree.WithData(cids),
+		merkletree.WithHashType(&keccak256.Keccak256{}),
+		merkletree.WithSorted(false),
+	)
 	if err != nil {
 		return "", status.Errorf(
 			codes.InvalidArgument,
@@ -55,7 +60,7 @@ func CalculateMerkleRoot(cidStrings []string) (string, error) {
 			err,
 		)
 	}
-	mh, err := multihash.Encode(mt.Root(), multihash.SHA2_256)
+	mh, err := multihash.Encode(mt.Root(), multihash.KECCAK_256)
 	if err != nil {
 		return "", status.Errorf(
 			codes.Internal,
@@ -116,7 +121,7 @@ func (m *ServeAllFileServing) EnsureAdvertisementValid(advertisement *pb.Provide
 		return err
 	}
 	if expectedRoot != variant.GetName() {
-		return fmt.Errorf("merkle tree root not matching")
+		return fmt.Errorf("merkle tree root not matching, expected %s got %s", expectedRoot, variant.GetName())
 	}
 	return nil
 }

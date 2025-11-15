@@ -35,12 +35,21 @@ func main() {
 	authManager := server.GetAuthManager()
 
 	mux := http.NewServeMux()
+	interceptors := make([]connect.Interceptor, 0)
+	if !conf.DisableAuth {
+		interceptors = append(
+			interceptors,
+			middleware.NewConnectUnarySessionInterceptor(sessionManager, pricingManager, authManager),
+		)
+	}
+	interceptors = append(
+		interceptors,
+		middleware.NewConnectValidationInterceptor(validator),
+	)
+
 	path, handler := kvstoreconnect.NewKvStoreServiceHandler(
 		server,
-		connect.WithInterceptors(
-			middleware.NewConnectUnarySessionInterceptor(sessionManager, pricingManager, authManager),
-			middleware.NewConnectValidationInterceptor(validator),
-		),
+		connect.WithInterceptors(interceptors...),
 	)
 	mux.Handle(path, handler)
 	reflector := grpcreflect.NewStaticReflector(

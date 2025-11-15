@@ -22,6 +22,7 @@ type Config struct {
 	RedisPort uint16 `mapstructure:"REDIS_PORT"`
 	GrpcPort  uint16 `mapstructure:"GRPC_PORT"`
 
+	DisableAuth       bool          `mapstructure:"DISABLE_AUTH"`
 	TokenTtl          time.Duration `mapstructure:"TOKEN_TTL"`
 	SelfIdentifier    string        `mapstructure:"SELF_IDENTIFIER"`
 	TokenSigningKeyId string

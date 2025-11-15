@@ -144,15 +144,17 @@ func NormalizeCidToV1(cidString string) (string, error) {
 			err.Error(),
 		)
 	}
-	if requestCid.Version() == 1 && requestCid.Prefix().Codec != cid.Raw {
+	codec := requestCid.Prefix().Codec
+	if requestCid.Version() == 1 && (codec != cid.Raw && codec != cid.DagProtobuf) {
 		return "", status.Errorf(
 			codes.InvalidArgument,
-			"currenty only raw codec (%d) is accepted but got %d",
+			"currently only raw codec (%d) and dag-pb (%d) are accepted but got %d",
 			cid.Raw,
-			requestCid.Prefix().Codec,
+			cid.DagProtobuf,
+			codec,
 		)
 	}
-	cidV1 := cid.NewCidV1(cid.Raw, requestCid.Hash())
+	cidV1 := cid.NewCidV1(codec, requestCid.Hash())
 	return cidV1.String(), nil
 }
 

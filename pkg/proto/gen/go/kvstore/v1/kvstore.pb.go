@@ -176,6 +176,55 @@ func (JwtUsage) EnumDescriptor() ([]byte, []int) {
 	return file_kvstore_v1_kvstore_proto_rawDescGZIP(), []int{2}
 }
 
+type CreateValueRequest_Codec int32
+
+const (
+	CreateValueRequest_CODEC_UNSPECIFIED CreateValueRequest_Codec = 0
+	CreateValueRequest_CODEC_RAW         CreateValueRequest_Codec = 1
+	CreateValueRequest_CODEC_DAG_PB      CreateValueRequest_Codec = 2
+)
+
+// Enum value maps for CreateValueRequest_Codec.
+var (
+	CreateValueRequest_Codec_name = map[int32]string{
+		0: "CODEC_UNSPECIFIED",
+		1: "CODEC_RAW",
+		2: "CODEC_DAG_PB",
+	}
+	CreateValueRequest_Codec_value = map[string]int32{
+		"CODEC_UNSPECIFIED": 0,
+		"CODEC_RAW":         1,
+		"CODEC_DAG_PB":      2,
+	}
+)
+
+func (x CreateValueRequest_Codec) Enum() *CreateValueRequest_Codec {
+	p := new(CreateValueRequest_Codec)
+	*p = x
+	return p
+}
+
+func (x CreateValueRequest_Codec) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (CreateValueRequest_Codec) Descriptor() protoreflect.EnumDescriptor {
+	return file_kvstore_v1_kvstore_proto_enumTypes[3].Descriptor()
+}
+
+func (CreateValueRequest_Codec) Type() protoreflect.EnumType {
+	return &file_kvstore_v1_kvstore_proto_enumTypes[3]
+}
+
+func (x CreateValueRequest_Codec) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use CreateValueRequest_Codec.Descriptor instead.
+func (CreateValueRequest_Codec) EnumDescriptor() ([]byte, []int) {
+	return file_kvstore_v1_kvstore_proto_rawDescGZIP(), []int{16, 0}
+}
+
 type ProviderResult struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	ContextId     string                 `protobuf:"bytes,1,opt,name=context_id,json=ContextID,proto3" json:"context_id,omitempty"`
@@ -1000,10 +1049,11 @@ func (*RegisterInstanceResponse) Descriptor() ([]byte, []int) {
 }
 
 type Instance struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Did           string                 `protobuf:"bytes,1,opt,name=did,proto3" json:"did,omitempty"`
-	PeerId        string                 `protobuf:"bytes,2,opt,name=peer_id,json=ID,proto3" json:"peer_id,omitempty"`
-	Multiaddrs    []string               `protobuf:"bytes,3,rep,name=multiaddrs,json=Addrs,proto3" json:"multiaddrs,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	Did   string                 `protobuf:"bytes,1,opt,name=did,proto3" json:"did,omitempty"`
+	// libp2p peer id. Not essential for our app but needed to be compatible with helia
+	PeerId        string   `protobuf:"bytes,2,opt,name=peer_id,json=ID,proto3" json:"peer_id,omitempty"`
+	Multiaddrs    []string `protobuf:"bytes,3,rep,name=multiaddrs,json=Addrs,proto3" json:"multiaddrs,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1060,10 +1110,10 @@ func (x *Instance) GetMultiaddrs() []string {
 }
 
 type CreateValueRequest struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// string parent = 1;
-	Value         []byte               `protobuf:"bytes,2,opt,name=value,proto3" json:"value,omitempty"`
-	Ttl           *durationpb.Duration `protobuf:"bytes,3,opt,name=ttl,proto3" json:"ttl,omitempty"`
+	state         protoimpl.MessageState   `protogen:"open.v1"`
+	Codec         CreateValueRequest_Codec `protobuf:"varint,1,opt,name=codec,proto3,enum=kvstore.v1.CreateValueRequest_Codec" json:"codec,omitempty"`
+	Value         []byte                   `protobuf:"bytes,2,opt,name=value,proto3" json:"value,omitempty"`
+	Ttl           *durationpb.Duration     `protobuf:"bytes,3,opt,name=ttl,proto3" json:"ttl,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1096,6 +1146,13 @@ func (x *CreateValueRequest) ProtoReflect() protoreflect.Message {
 // Deprecated: Use CreateValueRequest.ProtoReflect.Descriptor instead.
 func (*CreateValueRequest) Descriptor() ([]byte, []int) {
 	return file_kvstore_v1_kvstore_proto_rawDescGZIP(), []int{16}
+}
+
+func (x *CreateValueRequest) GetCodec() CreateValueRequest_Codec {
+	if x != nil {
+		return x.Codec
+	}
+	return CreateValueRequest_CODEC_UNSPECIFIED
 }
 
 func (x *CreateValueRequest) GetValue() []byte {
@@ -1952,10 +2009,15 @@ const file_kvstore_v1_kvstore_proto_rawDesc = "" +
 	"\x03did\x18\x01 \x01(\tB\x13\xe0A\x02\xbaH\r\xc8\x01\x01r\b2\x06did:.*R\x03did\x12+\n" +
 	"\apeer_id\x18\x02 \x01(\tB\x16\xbaH\x13r\x112\x0f[0-9a-zA-Z]{52}R\x02ID\x12/\n" +
 	"\n" +
-	"multiaddrs\x18\x03 \x03(\tB\x14\xe0A\x02\xbaH\x0e\xc8\x01\x01\x92\x01\b\b\x01\"\x04r\x02\x10\x01R\x05Addrs\"\x85\x01\n" +
-	"\x12CreateValueRequest\x12)\n" +
+	"multiaddrs\x18\x03 \x03(\tB\x14\xe0A\x02\xbaH\x0e\xc8\x01\x01\x92\x01\b\b\x01\"\x04r\x02\x10\x01R\x05Addrs\"\x8c\x02\n" +
+	"\x12CreateValueRequest\x12D\n" +
+	"\x05codec\x18\x01 \x01(\x0e2$.kvstore.v1.CreateValueRequest.CodecB\b\xbaH\x05\x82\x01\x02\x10\x01R\x05codec\x12)\n" +
 	"\x05value\x18\x02 \x01(\fB\x13\xe0A\x02\xbaH\r\xc8\x01\x01z\b\x10\x01\x18\x80\x80\x80\x80\x04R\x05value\x12D\n" +
-	"\x03ttl\x18\x03 \x01(\v2\x19.google.protobuf.DurationB\x17\xe0A\x02\xbaH\x11\xc8\x01\x01\xaa\x01\v\"\x05\b\x80\xe7\x84\x0f2\x02\b\x01R\x03ttl\"x\n" +
+	"\x03ttl\x18\x03 \x01(\v2\x19.google.protobuf.DurationB\x17\xe0A\x02\xbaH\x11\xc8\x01\x01\xaa\x01\v\"\x05\b\x80\xe7\x84\x0f2\x02\b\x01R\x03ttl\"?\n" +
+	"\x05Codec\x12\x15\n" +
+	"\x11CODEC_UNSPECIFIED\x10\x00\x12\r\n" +
+	"\tCODEC_RAW\x10\x01\x12\x10\n" +
+	"\fCODEC_DAG_PB\x10\x02\"x\n" +
 	"\x13CreateValueResponse\x124\n" +
 	"\x04name\x18\x01 \x01(\tB \xe0A\x02\xbaH\x1a\xc8\x01\x01r\x152\x13values/[0-9a-z]{59}R\x04name\x12+\n" +
 	"\x03ttl\x18\x02 \x01(\v2\x19.google.protobuf.DurationR\x03ttl\"\x83\x01\n" +
@@ -2047,103 +2109,105 @@ func file_kvstore_v1_kvstore_proto_rawDescGZIP() []byte {
 	return file_kvstore_v1_kvstore_proto_rawDescData
 }
 
-var file_kvstore_v1_kvstore_proto_enumTypes = make([]protoimpl.EnumInfo, 3)
+var file_kvstore_v1_kvstore_proto_enumTypes = make([]protoimpl.EnumInfo, 4)
 var file_kvstore_v1_kvstore_proto_msgTypes = make([]protoimpl.MessageInfo, 32)
 var file_kvstore_v1_kvstore_proto_goTypes = []any{
 	(CoinType)(0),                     // 0: kvstore.v1.CoinType
 	(CoinEnvironment)(0),              // 1: kvstore.v1.CoinEnvironment
 	(JwtUsage)(0),                     // 2: kvstore.v1.JwtUsage
-	(*ProviderResult)(nil),            // 3: kvstore.v1.ProviderResult
-	(*MultihashResult)(nil),           // 4: kvstore.v1.MultihashResult
-	(*DelegatedRoutingResponse)(nil),  // 5: kvstore.v1.DelegatedRoutingResponse
-	(*DelegatedRoutingRequest)(nil),   // 6: kvstore.v1.DelegatedRoutingRequest
-	(*PingRequest)(nil),               // 7: kvstore.v1.PingRequest
-	(*PingResponse)(nil),              // 8: kvstore.v1.PingResponse
-	(*GlobalLink)(nil),                // 9: kvstore.v1.GlobalLink
-	(*VirtualService)(nil),            // 10: kvstore.v1.VirtualService
-	(*ProviderAdvertise)(nil),         // 11: kvstore.v1.ProviderAdvertise
-	(*SearchCidRequest)(nil),          // 12: kvstore.v1.SearchCidRequest
-	(*SearchCidResponse)(nil),         // 13: kvstore.v1.SearchCidResponse
-	(*SearchInstanceRequest)(nil),     // 14: kvstore.v1.SearchInstanceRequest
-	(*SearchInstanceResponse)(nil),    // 15: kvstore.v1.SearchInstanceResponse
-	(*RegisterInstanceRequest)(nil),   // 16: kvstore.v1.RegisterInstanceRequest
-	(*RegisterInstanceResponse)(nil),  // 17: kvstore.v1.RegisterInstanceResponse
-	(*Instance)(nil),                  // 18: kvstore.v1.Instance
-	(*CreateValueRequest)(nil),        // 19: kvstore.v1.CreateValueRequest
-	(*CreateValueResponse)(nil),       // 20: kvstore.v1.CreateValueResponse
-	(*CreateStreamValueRequest)(nil),  // 21: kvstore.v1.CreateStreamValueRequest
-	(*CreateStreamValueResponse)(nil), // 22: kvstore.v1.CreateStreamValueResponse
-	(*GetStreamValueRequest)(nil),     // 23: kvstore.v1.GetStreamValueRequest
-	(*StreamValueInfo)(nil),           // 24: kvstore.v1.StreamValueInfo
-	(*GetStreamValueResponse)(nil),    // 25: kvstore.v1.GetStreamValueResponse
-	(*ListStreamValuesRequest)(nil),   // 26: kvstore.v1.ListStreamValuesRequest
-	(*ListStreamValuesResponse)(nil),  // 27: kvstore.v1.ListStreamValuesResponse
-	(*GetValueRequest)(nil),           // 28: kvstore.v1.GetValueRequest
-	(*GetValueResponse)(nil),          // 29: kvstore.v1.GetValueResponse
-	(*ProlongValueRequest)(nil),       // 30: kvstore.v1.ProlongValueRequest
-	(*ProlongValueResponse)(nil),      // 31: kvstore.v1.ProlongValueResponse
-	(*Session)(nil),                   // 32: kvstore.v1.Session
-	(*CreateSessionRequest)(nil),      // 33: kvstore.v1.CreateSessionRequest
-	(*CreateSessionResponse)(nil),     // 34: kvstore.v1.CreateSessionResponse
-	(*timestamppb.Timestamp)(nil),     // 35: google.protobuf.Timestamp
-	(*durationpb.Duration)(nil),       // 36: google.protobuf.Duration
+	(CreateValueRequest_Codec)(0),     // 3: kvstore.v1.CreateValueRequest.Codec
+	(*ProviderResult)(nil),            // 4: kvstore.v1.ProviderResult
+	(*MultihashResult)(nil),           // 5: kvstore.v1.MultihashResult
+	(*DelegatedRoutingResponse)(nil),  // 6: kvstore.v1.DelegatedRoutingResponse
+	(*DelegatedRoutingRequest)(nil),   // 7: kvstore.v1.DelegatedRoutingRequest
+	(*PingRequest)(nil),               // 8: kvstore.v1.PingRequest
+	(*PingResponse)(nil),              // 9: kvstore.v1.PingResponse
+	(*GlobalLink)(nil),                // 10: kvstore.v1.GlobalLink
+	(*VirtualService)(nil),            // 11: kvstore.v1.VirtualService
+	(*ProviderAdvertise)(nil),         // 12: kvstore.v1.ProviderAdvertise
+	(*SearchCidRequest)(nil),          // 13: kvstore.v1.SearchCidRequest
+	(*SearchCidResponse)(nil),         // 14: kvstore.v1.SearchCidResponse
+	(*SearchInstanceRequest)(nil),     // 15: kvstore.v1.SearchInstanceRequest
+	(*SearchInstanceResponse)(nil),    // 16: kvstore.v1.SearchInstanceResponse
+	(*RegisterInstanceRequest)(nil),   // 17: kvstore.v1.RegisterInstanceRequest
+	(*RegisterInstanceResponse)(nil),  // 18: kvstore.v1.RegisterInstanceResponse
+	(*Instance)(nil),                  // 19: kvstore.v1.Instance
+	(*CreateValueRequest)(nil),        // 20: kvstore.v1.CreateValueRequest
+	(*CreateValueResponse)(nil),       // 21: kvstore.v1.CreateValueResponse
+	(*CreateStreamValueRequest)(nil),  // 22: kvstore.v1.CreateStreamValueRequest
+	(*CreateStreamValueResponse)(nil), // 23: kvstore.v1.CreateStreamValueResponse
+	(*GetStreamValueRequest)(nil),     // 24: kvstore.v1.GetStreamValueRequest
+	(*StreamValueInfo)(nil),           // 25: kvstore.v1.StreamValueInfo
+	(*GetStreamValueResponse)(nil),    // 26: kvstore.v1.GetStreamValueResponse
+	(*ListStreamValuesRequest)(nil),   // 27: kvstore.v1.ListStreamValuesRequest
+	(*ListStreamValuesResponse)(nil),  // 28: kvstore.v1.ListStreamValuesResponse
+	(*GetValueRequest)(nil),           // 29: kvstore.v1.GetValueRequest
+	(*GetValueResponse)(nil),          // 30: kvstore.v1.GetValueResponse
+	(*ProlongValueRequest)(nil),       // 31: kvstore.v1.ProlongValueRequest
+	(*ProlongValueResponse)(nil),      // 32: kvstore.v1.ProlongValueResponse
+	(*Session)(nil),                   // 33: kvstore.v1.Session
+	(*CreateSessionRequest)(nil),      // 34: kvstore.v1.CreateSessionRequest
+	(*CreateSessionResponse)(nil),     // 35: kvstore.v1.CreateSessionResponse
+	(*timestamppb.Timestamp)(nil),     // 36: google.protobuf.Timestamp
+	(*durationpb.Duration)(nil),       // 37: google.protobuf.Duration
 }
 var file_kvstore_v1_kvstore_proto_depIdxs = []int32{
-	18, // 0: kvstore.v1.ProviderResult.provider:type_name -> kvstore.v1.Instance
-	3,  // 1: kvstore.v1.MultihashResult.provider_results:type_name -> kvstore.v1.ProviderResult
-	18, // 2: kvstore.v1.DelegatedRoutingResponse.providers:type_name -> kvstore.v1.Instance
-	9,  // 3: kvstore.v1.VirtualService.behavior_link:type_name -> kvstore.v1.GlobalLink
-	9,  // 4: kvstore.v1.VirtualService.variant_link:type_name -> kvstore.v1.GlobalLink
-	18, // 5: kvstore.v1.ProviderAdvertise.provider_instance:type_name -> kvstore.v1.Instance
-	10, // 6: kvstore.v1.ProviderAdvertise.virtual_service:type_name -> kvstore.v1.VirtualService
+	19, // 0: kvstore.v1.ProviderResult.provider:type_name -> kvstore.v1.Instance
+	4,  // 1: kvstore.v1.MultihashResult.provider_results:type_name -> kvstore.v1.ProviderResult
+	19, // 2: kvstore.v1.DelegatedRoutingResponse.providers:type_name -> kvstore.v1.Instance
+	10, // 3: kvstore.v1.VirtualService.behavior_link:type_name -> kvstore.v1.GlobalLink
+	10, // 4: kvstore.v1.VirtualService.variant_link:type_name -> kvstore.v1.GlobalLink
+	19, // 5: kvstore.v1.ProviderAdvertise.provider_instance:type_name -> kvstore.v1.Instance
+	11, // 6: kvstore.v1.ProviderAdvertise.virtual_service:type_name -> kvstore.v1.VirtualService
 	0,  // 7: kvstore.v1.ProviderAdvertise.coin_type:type_name -> kvstore.v1.CoinType
 	1,  // 8: kvstore.v1.ProviderAdvertise.coin_environment:type_name -> kvstore.v1.CoinEnvironment
-	18, // 9: kvstore.v1.ProviderAdvertise.exchanges:type_name -> kvstore.v1.Instance
-	35, // 10: kvstore.v1.ProviderAdvertise.expire_time:type_name -> google.protobuf.Timestamp
-	35, // 11: kvstore.v1.ProviderAdvertise.update_time:type_name -> google.protobuf.Timestamp
-	10, // 12: kvstore.v1.SearchCidResponse.virtual_services:type_name -> kvstore.v1.VirtualService
-	11, // 13: kvstore.v1.SearchCidResponse.storage_instances:type_name -> kvstore.v1.ProviderAdvertise
-	10, // 14: kvstore.v1.SearchInstanceRequest.virtual_service:type_name -> kvstore.v1.VirtualService
-	10, // 15: kvstore.v1.SearchInstanceResponse.virtual_service:type_name -> kvstore.v1.VirtualService
-	11, // 16: kvstore.v1.SearchInstanceResponse.instance_price_info:type_name -> kvstore.v1.ProviderAdvertise
-	11, // 17: kvstore.v1.RegisterInstanceRequest.advertisement:type_name -> kvstore.v1.ProviderAdvertise
-	36, // 18: kvstore.v1.CreateValueRequest.ttl:type_name -> google.protobuf.Duration
-	36, // 19: kvstore.v1.CreateValueResponse.ttl:type_name -> google.protobuf.Duration
-	36, // 20: kvstore.v1.CreateStreamValueResponse.ttl:type_name -> google.protobuf.Duration
-	24, // 21: kvstore.v1.GetStreamValueResponse.stream_value_info:type_name -> kvstore.v1.StreamValueInfo
-	24, // 22: kvstore.v1.ListStreamValuesResponse.stream_value_info:type_name -> kvstore.v1.StreamValueInfo
-	36, // 23: kvstore.v1.ProlongValueRequest.ttl:type_name -> google.protobuf.Duration
-	36, // 24: kvstore.v1.ProlongValueResponse.ttl:type_name -> google.protobuf.Duration
-	32, // 25: kvstore.v1.CreateSessionResponse.session:type_name -> kvstore.v1.Session
-	19, // 26: kvstore.v1.KvStoreService.CreateValue:input_type -> kvstore.v1.CreateValueRequest
-	21, // 27: kvstore.v1.KvStoreService.CreateStreamValue:input_type -> kvstore.v1.CreateStreamValueRequest
-	28, // 28: kvstore.v1.KvStoreService.GetValue:input_type -> kvstore.v1.GetValueRequest
-	23, // 29: kvstore.v1.KvStoreService.GetStreamValue:input_type -> kvstore.v1.GetStreamValueRequest
-	26, // 30: kvstore.v1.KvStoreService.ListStreamValues:input_type -> kvstore.v1.ListStreamValuesRequest
-	30, // 31: kvstore.v1.KvStoreService.ProlongValue:input_type -> kvstore.v1.ProlongValueRequest
-	12, // 32: kvstore.v1.KvStoreService.SearchCid:input_type -> kvstore.v1.SearchCidRequest
-	14, // 33: kvstore.v1.KvStoreService.SearchInstance:input_type -> kvstore.v1.SearchInstanceRequest
-	33, // 34: kvstore.v1.KvStoreService.CreateSession:input_type -> kvstore.v1.CreateSessionRequest
-	16, // 35: kvstore.v1.KvStoreService.RegisterInstance:input_type -> kvstore.v1.RegisterInstanceRequest
-	7,  // 36: kvstore.v1.KvStoreService.Ping:input_type -> kvstore.v1.PingRequest
-	6,  // 37: kvstore.v1.KvStoreService.DelegatedRouting:input_type -> kvstore.v1.DelegatedRoutingRequest
-	20, // 38: kvstore.v1.KvStoreService.CreateValue:output_type -> kvstore.v1.CreateValueResponse
-	22, // 39: kvstore.v1.KvStoreService.CreateStreamValue:output_type -> kvstore.v1.CreateStreamValueResponse
-	29, // 40: kvstore.v1.KvStoreService.GetValue:output_type -> kvstore.v1.GetValueResponse
-	25, // 41: kvstore.v1.KvStoreService.GetStreamValue:output_type -> kvstore.v1.GetStreamValueResponse
-	27, // 42: kvstore.v1.KvStoreService.ListStreamValues:output_type -> kvstore.v1.ListStreamValuesResponse
-	31, // 43: kvstore.v1.KvStoreService.ProlongValue:output_type -> kvstore.v1.ProlongValueResponse
-	13, // 44: kvstore.v1.KvStoreService.SearchCid:output_type -> kvstore.v1.SearchCidResponse
-	15, // 45: kvstore.v1.KvStoreService.SearchInstance:output_type -> kvstore.v1.SearchInstanceResponse
-	34, // 46: kvstore.v1.KvStoreService.CreateSession:output_type -> kvstore.v1.CreateSessionResponse
-	17, // 47: kvstore.v1.KvStoreService.RegisterInstance:output_type -> kvstore.v1.RegisterInstanceResponse
-	8,  // 48: kvstore.v1.KvStoreService.Ping:output_type -> kvstore.v1.PingResponse
-	5,  // 49: kvstore.v1.KvStoreService.DelegatedRouting:output_type -> kvstore.v1.DelegatedRoutingResponse
-	38, // [38:50] is the sub-list for method output_type
-	26, // [26:38] is the sub-list for method input_type
-	26, // [26:26] is the sub-list for extension type_name
-	26, // [26:26] is the sub-list for extension extendee
-	0,  // [0:26] is the sub-list for field type_name
+	19, // 9: kvstore.v1.ProviderAdvertise.exchanges:type_name -> kvstore.v1.Instance
+	36, // 10: kvstore.v1.ProviderAdvertise.expire_time:type_name -> google.protobuf.Timestamp
+	36, // 11: kvstore.v1.ProviderAdvertise.update_time:type_name -> google.protobuf.Timestamp
+	11, // 12: kvstore.v1.SearchCidResponse.virtual_services:type_name -> kvstore.v1.VirtualService
+	12, // 13: kvstore.v1.SearchCidResponse.storage_instances:type_name -> kvstore.v1.ProviderAdvertise
+	11, // 14: kvstore.v1.SearchInstanceRequest.virtual_service:type_name -> kvstore.v1.VirtualService
+	11, // 15: kvstore.v1.SearchInstanceResponse.virtual_service:type_name -> kvstore.v1.VirtualService
+	12, // 16: kvstore.v1.SearchInstanceResponse.instance_price_info:type_name -> kvstore.v1.ProviderAdvertise
+	12, // 17: kvstore.v1.RegisterInstanceRequest.advertisement:type_name -> kvstore.v1.ProviderAdvertise
+	3,  // 18: kvstore.v1.CreateValueRequest.codec:type_name -> kvstore.v1.CreateValueRequest.Codec
+	37, // 19: kvstore.v1.CreateValueRequest.ttl:type_name -> google.protobuf.Duration
+	37, // 20: kvstore.v1.CreateValueResponse.ttl:type_name -> google.protobuf.Duration
+	37, // 21: kvstore.v1.CreateStreamValueResponse.ttl:type_name -> google.protobuf.Duration
+	25, // 22: kvstore.v1.GetStreamValueResponse.stream_value_info:type_name -> kvstore.v1.StreamValueInfo
+	25, // 23: kvstore.v1.ListStreamValuesResponse.stream_value_info:type_name -> kvstore.v1.StreamValueInfo
+	37, // 24: kvstore.v1.ProlongValueRequest.ttl:type_name -> google.protobuf.Duration
+	37, // 25: kvstore.v1.ProlongValueResponse.ttl:type_name -> google.protobuf.Duration
+	33, // 26: kvstore.v1.CreateSessionResponse.session:type_name -> kvstore.v1.Session
+	20, // 27: kvstore.v1.KvStoreService.CreateValue:input_type -> kvstore.v1.CreateValueRequest
+	22, // 28: kvstore.v1.KvStoreService.CreateStreamValue:input_type -> kvstore.v1.CreateStreamValueRequest
+	29, // 29: kvstore.v1.KvStoreService.GetValue:input_type -> kvstore.v1.GetValueRequest
+	24, // 30: kvstore.v1.KvStoreService.GetStreamValue:input_type -> kvstore.v1.GetStreamValueRequest
+	27, // 31: kvstore.v1.KvStoreService.ListStreamValues:input_type -> kvstore.v1.ListStreamValuesRequest
+	31, // 32: kvstore.v1.KvStoreService.ProlongValue:input_type -> kvstore.v1.ProlongValueRequest
+	13, // 33: kvstore.v1.KvStoreService.SearchCid:input_type -> kvstore.v1.SearchCidRequest
+	15, // 34: kvstore.v1.KvStoreService.SearchInstance:input_type -> kvstore.v1.SearchInstanceRequest
+	34, // 35: kvstore.v1.KvStoreService.CreateSession:input_type -> kvstore.v1.CreateSessionRequest
+	17, // 36: kvstore.v1.KvStoreService.RegisterInstance:input_type -> kvstore.v1.RegisterInstanceRequest
+	8,  // 37: kvstore.v1.KvStoreService.Ping:input_type -> kvstore.v1.PingRequest
+	7,  // 38: kvstore.v1.KvStoreService.DelegatedRouting:input_type -> kvstore.v1.DelegatedRoutingRequest
+	21, // 39: kvstore.v1.KvStoreService.CreateValue:output_type -> kvstore.v1.CreateValueResponse
+	23, // 40: kvstore.v1.KvStoreService.CreateStreamValue:output_type -> kvstore.v1.CreateStreamValueResponse
+	30, // 41: kvstore.v1.KvStoreService.GetValue:output_type -> kvstore.v1.GetValueResponse
+	26, // 42: kvstore.v1.KvStoreService.GetStreamValue:output_type -> kvstore.v1.GetStreamValueResponse
+	28, // 43: kvstore.v1.KvStoreService.ListStreamValues:output_type -> kvstore.v1.ListStreamValuesResponse
+	32, // 44: kvstore.v1.KvStoreService.ProlongValue:output_type -> kvstore.v1.ProlongValueResponse
+	14, // 45: kvstore.v1.KvStoreService.SearchCid:output_type -> kvstore.v1.SearchCidResponse
+	16, // 46: kvstore.v1.KvStoreService.SearchInstance:output_type -> kvstore.v1.SearchInstanceResponse
+	35, // 47: kvstore.v1.KvStoreService.CreateSession:output_type -> kvstore.v1.CreateSessionResponse
+	18, // 48: kvstore.v1.KvStoreService.RegisterInstance:output_type -> kvstore.v1.RegisterInstanceResponse
+	9,  // 49: kvstore.v1.KvStoreService.Ping:output_type -> kvstore.v1.PingResponse
+	6,  // 50: kvstore.v1.KvStoreService.DelegatedRouting:output_type -> kvstore.v1.DelegatedRoutingResponse
+	39, // [39:51] is the sub-list for method output_type
+	27, // [27:39] is the sub-list for method input_type
+	27, // [27:27] is the sub-list for extension type_name
+	27, // [27:27] is the sub-list for extension extendee
+	0,  // [0:27] is the sub-list for field type_name
 }
 
 func init() { file_kvstore_v1_kvstore_proto_init() }
@@ -2156,7 +2220,7 @@ func file_kvstore_v1_kvstore_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_kvstore_v1_kvstore_proto_rawDesc), len(file_kvstore_v1_kvstore_proto_rawDesc)),
-			NumEnums:      3,
+			NumEnums:      4,
 			NumMessages:   32,
 			NumExtensions: 0,
 			NumServices:   1,
